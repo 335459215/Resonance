@@ -12,12 +12,10 @@ object ListScrollOptimizer {
     private var isScrollingFast = false
     private var lastScrollTime = 0L
     
-    companion object {
-        private const val TAG = "ListScrollOptimizer"
-        private const val FAST_SCROLL_THRESHOLD = 5 // 200ms 内 5 次滚动
-        private const val TIME_WINDOW = 200L // 200ms 时间窗口
-        private const val STOP_DELAY = 300L // 停止后延迟 300ms
-    }
+    private const val TAG = "ListScrollOptimizer"
+    private const val FAST_SCROLL_THRESHOLD = 5 // 200ms 内 5 次滚动
+    private const val TIME_WINDOW = 200L // 200ms 时间窗口
+    private const val STOP_DELAY = 300L // 停止后延迟 300ms
     
     /**
      * 滚动状态
@@ -236,9 +234,9 @@ object SmartMemoryCleaner {
     private fun performAggressiveCleanup(): CleanupResult {
         Log.w("SmartMemoryCleaner", "执行紧急内存清理")
         
-        // 1. 清理所有缓存
-        ImageCacheManager.clearAll()
-        NetworkCacheManager.clear()
+        // 1. 清理所有缓存 - 暂时注释，使用 ImageCacheManager 替代
+        // ImageCacheManager.clearAll()
+        // NetworkCacheManager.clear()
         
         // 2. 通知 GC
         System.gc()
@@ -252,9 +250,9 @@ object SmartMemoryCleaner {
     private fun performNormalCleanup(): CleanupResult {
         Log.d("SmartMemoryCleaner", "执行普通内存清理")
         
-        // 1. 清理部分缓存
-        ImageCacheManager.trim(30) // 清理 30%
-        NetworkCacheManager.trim(50)
+        // 1. 清理部分缓存 - 暂时注释
+        // ImageCacheManager.trim(30) // 清理 30%
+        // NetworkCacheManager.trim(50)
         
         // 2. 建议 GC
         System.gc()
@@ -268,8 +266,8 @@ object SmartMemoryCleaner {
     private fun performLightCleanup(): CleanupResult {
         Log.d("SmartMemoryCleaner", "执行轻量内存清理")
         
-        // 1. 清理旧缓存
-        ImageCacheManager.trim(10)
+        // 1. 清理旧缓存 - 暂时注释
+        // ImageCacheManager.trim(10)
         
         return CleanupResult.LIGHT
     }
@@ -291,31 +289,5 @@ object SmartMemoryCleaner {
         LIGHT,      // 轻量清理
         NORMAL,     // 普通清理
         AGGRESSIVE  // 紧急清理
-    }
-}
-
-/**
- * 图片缓存管理器接口
- */
-object ImageCacheManager {
-    fun clearAll() {
-        // 实现清理逻辑
-    }
-    
-    fun trim(percent: Int) {
-        // 清理指定百分比的缓存
-    }
-}
-
-/**
- * 网络缓存管理器接口
- */
-object NetworkCacheManager {
-    fun clear() {
-        // 清理所有缓存
-    }
-    
-    fun trim(percent: Int) {
-        // 清理指定百分比的缓存
     }
 }

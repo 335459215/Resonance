@@ -17,6 +17,8 @@ import java.util.concurrent.TimeUnit
  */
 object ImageCacheManager {
     
+    private const val IMAGE_CACHE_DIR = "image_cache"
+    
     /**
      * 创建优化的 ImageLoader
      */
@@ -64,13 +66,13 @@ object ImageCacheManager {
         val availableMemory = runtime.freeMemory()
         
         // 动态计算缓存大小，避免 OOM
-        val safeMemorySize = (availableMemory.coerceAtMost(maxMemory * 0.5) / 1024).toLong()
+        val safeMemorySize = (availableMemory.coerceAtMost((maxMemory * 0.5).toLong()) / 1024).toLong()
         val maxSize = safeMemorySize.coerceAtMost((maxMemory / 1024 * AppConfig.IMAGE_MEMORY_CACHE_PERCENT).toLong())
         
         android.util.Log.d("ImageCacheManager", "Memory cache size: ${maxSize / 1024}KB (available: ${availableMemory / 1024 / 1024}MB)")
         
         return MemoryCache.Builder(context)
-            .maxSizeBytes(maxSize)
+            .maxSizeBytes(maxSize.toInt())
             .build()
     }
     

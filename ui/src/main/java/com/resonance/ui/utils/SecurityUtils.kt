@@ -1,6 +1,5 @@
 ﻿package com.resonance.ui.utils
 
-import android.security.KeyStoreParams
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
