@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI Strings -->
+    <string name="ai_enhance">AI Vision Enhancement</string>
+    <string name="ai_status">AI Processing</string>
+    <string name="ultra_res">AI Ultra-Resolution</string>
+    <string name="color_boost">Neural Color Boost</string>
+    <string name="split_preview">Live Split Preview</string>
+    <string name="play">Play</string>
+    <string name="trailer">Trailer</string>
+    <string name="continue_watching">Continue Watching</string>
+    
+    <!-- Resolutions -->
+    <string name="resolution_4k_hdr">4K HDR</string>
+    <string name="resolution_80mbps">80Mbps</string>
+    <string name="resolution_hevc">HEVC</string>
+    <string name="resolution_atmos">Atmos</string>
+    
+    <!-- Tags -->
+    <string name="tag_scifi">Sci-Fi</string>
+    <string name="tag_action">Action</string>
+    <string name="tag_2024">2024</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_network">Network</string>
+    <string name="nav_download">Download</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- Player -->
+    <string name="player_title">Dune: Part Two (4K REMUX)</string>
+    <string name="neural_engine">Neural Engine v4.2</string>
+    
+    <!-- Discovery -->
+    <string name="discovery_title">DUNE: PART TWO</string>
+    <string name="discovery_description">Paul Atreides joins the Fremen and begins a great revenge that could destroy the entire universe...</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 默认语言：英语 -->
+    <locale android:name="en" />
+    <!-- 支持的其他语言 -->
+    <locale android:name="zh" />
+    <!-- 可以添加更多语言支持 -->
+    <!-- <locale android:name="es" /> -->
+    <!-- <locale android:name="fr" /> -->
+    <!-- <locale android:name="de" /> -->
+</locale-config>

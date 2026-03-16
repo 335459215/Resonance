@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- UI Strings -->
+    <string name="ai_enhance">AI 视觉增强</string>
+    <string name="ai_status">AI 运算中</string>
+    <string name="ultra_res">AI 超分辨率重建</string>
+    <string name="color_boost">神经色彩增强</string>
+    <string name="split_preview">实时对比模式</string>
+    <string name="play">播放</string>
+    <string name="trailer">预告片</string>
+    <string name="continue_watching">继续观看</string>
+    
+    <!-- Resolutions -->
+    <string name="resolution_4k_hdr">4K HDR</string>
+    <string name="resolution_80mbps">80Mbps</string>
+    <string name="resolution_hevc">HEVC</string>
+    <string name="resolution_atmos">Atmos</string>
+    
+    <!-- Tags -->
+    <string name="tag_scifi">科幻</string>
+    <string name="tag_action">动作</string>
+    <string name="tag_2024">2024</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">首页</string>
+    <string name="nav_network">网络</string>
+    <string name="nav_download">下载</string>
+    <string name="nav_settings">设置</string>
+    
+    <!-- Player -->
+    <string name="player_title">Dune: Part Two (4K REMUX)</string>
+    <string name="neural_engine">Neural Engine v4.2</string>
+    
+    <!-- Discovery -->
+    <string name="discovery_title">DUNE: PART TWO</string>
+    <string name="discovery_description">保罗·厄崔迪公爵加入了弗雷曼人阵营，开始了一场足以毁灭全宇宙的伟大复仇...</string>
+</resources>

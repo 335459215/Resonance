@@ -1,0 +1,157 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// --- Commercial Configuration & Localization ---
+const UI_STRINGS = {
+  zh: {
+    aiEnhance: "AI 视觉增强",
+    aiStatus: "AI 运算中",
+    ultraRes: "AI 超分辨率重建",
+    colorBoost: "神经色彩增强",
+    splitPreview: "实时对比模式",
+    play: "播放",
+    trailer: "预告片",
+    continue: "继续观看",
+    resolutions: ["4K HDR", "80Mbps", "HEVC", "Atmos"],
+    tags: ["科幻", "动作", "2024"]
+  },
+  en: {
+    aiEnhance: "AI Vision Enhancement",
+    aiStatus: "AI Processing",
+    ultraRes: "AI Ultra-Resolution",
+    colorBoost: "Neural Color Boost",
+    splitPreview: "Live Split Preview",
+    play: "Play",
+    trailer: "Trailer",
+    continue: "Continue Watching",
+    resolutions: ["4K HDR", "80Mbps", "HEVC", "Atmos"],
+    tags: ["Sci-Fi", "Action", "2024"]
+  }
+};
+
+const ForwardEliteApp = () => {
+  const [lang] = useState('zh');
+  const [isAiActive, setIsAiActive] = useState(true);
+  const [view, setView] = useState('discovery'); // discovery | player
+  const t = UI_STRINGS[lang];
+
+  return (
+    <div className="h-screen w-screen bg-gradient-to-br from-[#F1F2F6] via-[#E8EAF2] to-[#DDE1ED] text-[#2D3436] font-sans overflow-hidden select-none">
+      {view === 'discovery' ? (
+        <DiscoveryView t={t} onPlay={() => setView('player')} />
+      ) : (
+        <PlayerView t={t} isAiActive={isAiActive} toggleAi={() => setIsAiActive(!isAiActive)} onBack={() => setView('discovery')} />
+      )}
+    </div>
+  );
+};
+
+// --- View 1: TV Discovery Wall (Light Gallery) ---
+const DiscoveryView = ({ t, onPlay }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-20 flex flex-col h-full justify-between">
+    <div className="flex gap-12 items-start">
+      {/* Sidebar - Minimalist Glass */}
+      <nav className="w-16 flex flex-col gap-10 items-center py-10 bg-white/30 backdrop-blur-3xl rounded-full border border-white/40 shadow-xl">
+        <span className="text-2xl opacity-100">🏠</span>
+        <span className="text-2xl opacity-40">🌐</span>
+        <span className="text-2xl opacity-40">📥</span>
+        <span className="text-2xl opacity-40">⚙️</span>
+      </nav>
+
+      {/* Main Hero Metadata */}
+      <div className="flex-1 space-y-6">
+        <div className="flex gap-3">
+          {t.resolutions.map(r => (
+            <span key={r} className="px-3 py-1 bg-white/60 backdrop-blur-md rounded-lg text-[10px] font-black border border-white/50 text-[#636E72]">{r}</span>
+          ))}
+        </div>
+        <h1 className="text-8xl font-black tracking-tighter text-[#1e272e] leading-none">DUNE: PART TWO</h1>
+        <p className="max-w-xl text-lg text-[#636E72] leading-relaxed font-medium">保罗·厄崔迪公爵加入了弗雷曼人阵营，开始了一场足以毁灭全宇宙的伟大复仇...</p>
+        <div className="flex gap-4 pt-4">
+          <button onClick={onPlay} className="px-10 py-4 bg-gradient-to-r from-[#0984E3] to-[#74b9ff] text-white font-bold rounded-2xl shadow-lg shadow-blue-500/20 active:scale-95 transition-transform">
+            {t.play}
+          </button>
+          <button className="px-10 py-4 bg-white/60 backdrop-blur-md font-bold rounded-2xl border border-white/50">{t.trailer}</button>
+        </div>
+      </div>
+    </div>
+
+    {/* Poster Grid Section */}
+    <section>
+      <h3 className="text-sm font-black text-[#636E72]/50 uppercase tracking-[0.2em] mb-6">{t.continue}</h3>
+      <div className="flex gap-8">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className={`relative w-56 h-80 rounded-[30px] overflow-hidden border-2 border-white/40 shadow-2xl transition-all ${i === 1 ? 'ring-4 ring-[#0984E3] scale-105' : 'opacity-60'}`}>
+             <div className="absolute inset-0 bg-white/20" />
+             <img src={`https://picsum.photos/seed/${i+40}/300/450`} alt="poster" className="w-full h-full object-cover" />
+          </div>
+        ))}
+      </div>
+    </section>
+  </motion.div>
+);
+
+// --- View 2: Pro Player with AI Enhancement Panel ---
+const PlayerView = ({ t, isAiActive, toggleAi, onBack }) => (
+  <div className="relative h-screen w-screen bg-black">
+    {/* Mock Video Content */}
+    <img src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=2000" className="absolute inset-0 w-full h-full object-cover opacity-80" alt="movie" />
+    
+    {/* Top Header - Zero Black */}
+    <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-[#F1F2F6]/90 to-transparent p-12 flex justify-between items-center backdrop-blur-sm">
+      <button onClick={onBack} className="w-12 h-12 rounded-full bg-white/40 backdrop-blur-xl flex items-center justify-center border border-white/50">✕</button>
+      <div className="flex items-center gap-4">
+        {isAiActive && (
+          <div className="px-3 py-1 bg-cyan-500/20 border border-cyan-500/40 rounded-lg text-cyan-600 text-xs font-black animate-pulse">
+            {t.aiStatus}
+          </div>
+        )}
+        <h2 className="text-xl font-bold">Dune: Part Two (4K REMUX)</h2>
+      </div>
+      <div className="w-12 h-12 rounded-full bg-white/40" />
+    </div>
+
+    {/* AI MASTER PANEL (Floating Glass) */}
+    <motion.div 
+      initial={{ y: 200, opacity: 0 }} 
+      animate={{ y: 0, opacity: 1 }}
+      className="absolute bottom-16 left-1/2 -translate-x-1/2 w-[900px] bg-white/40 backdrop-blur-3xl rounded-[40px] border border-white/60 p-8 shadow-[0_40px_100px_rgba(0,0,0,0.1)] flex items-center justify-between"
+    >
+      <div className="flex gap-10 items-center">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-[#636E72]/50 uppercase tracking-widest">{t.aiEnhance}</p>
+          <h3 className="text-xl font-bold">{t.ultraRes}</h3>
+        </div>
+        
+        {/* AI Toggle Switch */}
+        <button 
+          onClick={toggleAi}
+          className={`w-20 h-10 rounded-full p-1.5 transition-all duration-500 ${isAiActive ? 'bg-[#0984E3]' : 'bg-[#DDE1ED]'}`}
+        >
+          <div className={`w-7 h-7 bg-white rounded-full shadow-lg transition-transform duration-500 ${isAiActive ? 'translate-x-10' : 'translate-x-0'}`} />
+        </button>
+
+        <div className="h-10 w-[1px] bg-[#636E72]/10 mx-4" />
+
+        <div className="flex gap-6">
+           <AiControlItem icon="🎨" label={t.colorBoost} active={isAiActive} />
+           <AiControlItem icon="📐" label={t.splitPreview} active={false} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 px-6 py-3 bg-[#0984E3]/10 rounded-2xl border border-[#0984E3]/20">
+        <span className="text-sm font-bold text-[#0984E3]">Neural Engine v4.2</span>
+        <div className="w-2 h-2 bg-[#0984E3] rounded-full animate-ping" />
+      </div>
+    </motion.div>
+  </div>
+);
+
+const AiControlItem = ({ icon, label, active }) => (
+  <div className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all ${active ? 'bg-white/80 border-[#0984E3]/30 text-[#0984E3]' : 'bg-white/10 border-white/30 opacity-40'}`}>
+    <span className="text-xl">{icon}</span>
+    <span className="text-xs font-black uppercase tracking-tight">{label}</span>
+  </div>
+);
+
+export default ForwardEliteApp;
