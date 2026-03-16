@@ -18,15 +18,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging = false
+    // 配置签名
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: rootProject.file("release.keystore").absolutePath)
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "Resonance2026"
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "resonance"
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "Resonance2026"
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
