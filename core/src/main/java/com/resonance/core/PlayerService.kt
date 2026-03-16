@@ -1,4 +1,4 @@
-﻿package com.resonance.core
+package com.resonance.core
 
 import android.app.Service
 import android.content.Intent
@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.SharedFlow
 
 @UnstableApi
 class PlayerService : Service() {
+    companion object {
+        private const val TAG = "PlayerService"
+    }
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var player: IPlayer? = null
     private var playerManager: PlayerManager? = null
@@ -24,18 +27,18 @@ class PlayerService : Service() {
     private val messenger = Messenger(object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
-                MSG_INIT -> handleInit(msg)
-                MSG_SET_SURFACE -> handleSetSurface(msg)
-                MSG_SET_DATA_SOURCE -> handleSetDataSource(msg)
-                MSG_PREPARE -> handlePrepare(msg)
-                MSG_START -> handleStart(msg)
-                MSG_PAUSE -> handlePause(msg)
-                MSG_STOP -> handleStop(msg)
-                MSG_SEEK_TO -> handleSeekTo(msg)
-                MSG_SET_VOLUME -> handleSetVolume(msg)
-                MSG_SET_SPEED -> handleSetSpeed(msg)
-                MSG_RELEASE -> handleRelease(msg)
-                MSG_GET_STATUS -> handleGetStatus(msg)
+                PlayerConstants.MSG_INIT -> handleInit(msg)
+                PlayerConstants.MSG_SET_SURFACE -> handleSetSurface(msg)
+                PlayerConstants.MSG_SET_DATA_SOURCE -> handleSetDataSource(msg)
+                PlayerConstants.MSG_PREPARE -> handlePrepare(msg)
+                PlayerConstants.MSG_START -> handleStart(msg)
+                PlayerConstants.MSG_PAUSE -> handlePause(msg)
+                PlayerConstants.MSG_STOP -> handleStop(msg)
+                PlayerConstants.MSG_SEEK_TO -> handleSeekTo(msg)
+                PlayerConstants.MSG_SET_VOLUME -> handleSetVolume(msg)
+                PlayerConstants.MSG_SET_SPEED -> handleSetSpeed(msg)
+                PlayerConstants.MSG_RELEASE -> handleRelease(msg)
+                PlayerConstants.MSG_GET_STATUS -> handleGetStatus(msg)
             }
         }
     })
@@ -66,87 +69,93 @@ class PlayerService : Service() {
 
     private fun handleInit(msg: Message) {
         val bundle = msg.data
-        val playerType = bundle.getInt(KEY_PLAYER_TYPE, PlayerManager.PlayerType.MEDIA3.ordinal)
+        val playerType = bundle.getInt(PlayerConstants.KEY_PLAYER_TYPE, PlayerManager.PlayerType.MEDIA3.ordinal)
         serviceScope.launch {
             try {
+                android.util.Log.d(TAG, "Initializing player of type: ${PlayerManager.PlayerType.values()[playerType]}")
                 val type = PlayerManager.PlayerType.values()[playerType]
                 player = playerManager?.createPlayer(type)
                 setupPlayerListeners()
-                sendResponse(msg.replyTo, MSG_INIT, true, "Player initialized successfully")
+                android.util.Log.i(TAG, "Player initialized successfully")
+                sendResponse(msg.replyTo, PlayerConstants.MSG_INIT, true, "Player initialized successfully")
             } catch (e: Exception) {
-                sendResponse(msg.replyTo, MSG_INIT, false, "Failed to initialize player: ${e.message}")
+                android.util.Log.e(TAG, "Failed to initialize player: ${e.message}", e)
+                sendResponse(msg.replyTo, PlayerConstants.MSG_INIT, false, "Failed to initialize player: ${e.message}")
             }
         }
     }
 
     private fun handleSetSurface(msg: Message) {
         val surface = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            msg.data.getParcelable(KEY_SURFACE, Surface::class.java)
+            msg.data.getParcelable(PlayerConstants.KEY_SURFACE, Surface::class.java)
         } else {
             @Suppress("DEPRECATION")
-            msg.data.getParcelable(KEY_SURFACE)
+            msg.data.getParcelable(PlayerConstants.KEY_SURFACE)
         }
         player?.setSurface(surface)
-        sendResponse(msg.replyTo, MSG_SET_SURFACE, true, "Surface set successfully")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_SET_SURFACE, true, "Surface set successfully")
     }
 
     private fun handleSetDataSource(msg: Message) {
-        val url = msg.data.getString(KEY_DATA_SOURCE)
+        val url = msg.data.getString(PlayerConstants.KEY_DATA_SOURCE)
         if (url != null) {
             player?.setDataSource(url)
-            sendResponse(msg.replyTo, MSG_SET_DATA_SOURCE, true, "Data source set successfully")
+            sendResponse(msg.replyTo, PlayerConstants.MSG_SET_DATA_SOURCE, true, "Data source set successfully")
         } else {
-            sendResponse(msg.replyTo, MSG_SET_DATA_SOURCE, false, "Invalid data source")
+            sendResponse(msg.replyTo, PlayerConstants.MSG_SET_DATA_SOURCE, false, "Invalid data source")
         }
     }
 
     private fun handlePrepare(msg: Message) {
         serviceScope.launch {
             try {
+                android.util.Log.d(TAG, "Preparing player")
                 player?.prepare()
-                sendResponse(msg.replyTo, MSG_PREPARE, true, "Player prepared successfully")
+                android.util.Log.i(TAG, "Player prepared successfully")
+                sendResponse(msg.replyTo, PlayerConstants.MSG_PREPARE, true, "Player prepared successfully")
             } catch (e: Exception) {
-                sendResponse(msg.replyTo, MSG_PREPARE, false, "Failed to prepare player: ${e.message}")
+                android.util.Log.e(TAG, "Failed to prepare player: ${e.message}", e)
+                sendResponse(msg.replyTo, PlayerConstants.MSG_PREPARE, false, "Failed to prepare player: ${e.message}")
             }
         }
     }
 
     private fun handleStart(msg: Message) {
         player?.start()
-        sendResponse(msg.replyTo, MSG_START, true, "Player started")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_START, true, "Player started")
     }
 
     private fun handlePause(msg: Message) {
         player?.pause()
-        sendResponse(msg.replyTo, MSG_PAUSE, true, "Player paused")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_PAUSE, true, "Player paused")
     }
 
     private fun handleStop(msg: Message) {
         player?.stop()
-        sendResponse(msg.replyTo, MSG_STOP, true, "Player stopped")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_STOP, true, "Player stopped")
     }
 
     private fun handleSeekTo(msg: Message) {
-        val position = msg.data.getLong(KEY_POSITION, 0)
+        val position = msg.data.getLong(PlayerConstants.KEY_POSITION, 0)
         player?.seekTo(position)
-        sendResponse(msg.replyTo, MSG_SEEK_TO, true, "Seek completed")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_SEEK_TO, true, "Seek completed")
     }
 
     private fun handleSetVolume(msg: Message) {
-        val volume = msg.data.getFloat(KEY_VOLUME, 1.0f)
+        val volume = msg.data.getFloat(PlayerConstants.KEY_VOLUME, 1.0f)
         player?.setVolume(volume)
-        sendResponse(msg.replyTo, MSG_SET_VOLUME, true, "Volume set")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_SET_VOLUME, true, "Volume set")
     }
 
     private fun handleSetSpeed(msg: Message) {
-        val speed = msg.data.getFloat(KEY_SPEED, 1.0f)
+        val speed = msg.data.getFloat(PlayerConstants.KEY_SPEED, 1.0f)
         player?.setSpeed(speed)
-        sendResponse(msg.replyTo, MSG_SET_SPEED, true, "Speed set")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_SET_SPEED, true, "Speed set")
     }
 
     private fun handleRelease(msg: Message) {
         cleanup()
-        sendResponse(msg.replyTo, MSG_RELEASE, true, "Player released")
+        sendResponse(msg.replyTo, PlayerConstants.MSG_RELEASE, true, "Player released")
     }
 
     private fun handleGetStatus(msg: Message) {
@@ -157,9 +166,9 @@ class PlayerService : Service() {
             bufferedPercentage = player?.getBufferedPercentage() ?: 0
         )
         val bundle = Bundle().apply {
-            putParcelable(KEY_STATUS, status)
+            putParcelable(PlayerConstants.KEY_STATUS, status)
         }
-        sendResponse(msg.replyTo, MSG_GET_STATUS, true, "Status retrieved", bundle)
+        sendResponse(msg.replyTo, PlayerConstants.MSG_GET_STATUS, true, "Status retrieved", bundle)
     }
 
     private fun setupPlayerListeners() {
@@ -201,40 +210,15 @@ class PlayerService : Service() {
         replyTo?.let {
             val response = Message.obtain(null, what)
             val responseBundle = bundle ?: Bundle()
-            responseBundle.putBoolean(KEY_SUCCESS, success)
-            responseBundle.putString(KEY_MESSAGE, message)
+            responseBundle.putBoolean(PlayerConstants.KEY_SUCCESS, success)
+            responseBundle.putString(PlayerConstants.KEY_MESSAGE, message)
             response.data = responseBundle
             try {
                 it.send(response)
             } catch (e: RemoteException) {
-                // 客户端可能已断开
+                android.util.Log.e(TAG, "Failed to send response: ${e.message}")
             }
         }
-    }
-
-    companion object {
-        const val MSG_INIT = 1
-        const val MSG_SET_SURFACE = 2
-        const val MSG_SET_DATA_SOURCE = 3
-        const val MSG_PREPARE = 4
-        const val MSG_START = 5
-        const val MSG_PAUSE = 6
-        const val MSG_STOP = 7
-        const val MSG_SEEK_TO = 8
-        const val MSG_SET_VOLUME = 9
-        const val MSG_SET_SPEED = 10
-        const val MSG_RELEASE = 11
-        const val MSG_GET_STATUS = 12
-
-        const val KEY_PLAYER_TYPE = "player_type"
-        const val KEY_SURFACE = "surface"
-        const val KEY_DATA_SOURCE = "data_source"
-        const val KEY_POSITION = "position"
-        const val KEY_VOLUME = "volume"
-        const val KEY_SPEED = "speed"
-        const val KEY_SUCCESS = "success"
-        const val KEY_MESSAGE = "message"
-        const val KEY_STATUS = "status"
     }
 
     data class PlayerStatus(
@@ -272,3 +256,4 @@ class PlayerService : Service() {
         }
     }
 }
+

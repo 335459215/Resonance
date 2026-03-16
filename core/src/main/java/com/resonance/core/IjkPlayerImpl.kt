@@ -30,7 +30,8 @@ class IjkPlayerImpl : IPlayer {
             IjkMediaPlayer.loadLibrariesOnce(null)
             IjkMediaPlayer.native_profileBegin("libijkplayer.so")
         } catch (e: Exception) {
-            // 库加载失败
+            android.util.Log.e("IjkPlayerImpl", "Failed to load IJK libraries: ${e.message}", e)
+            throw RuntimeException("Failed to initialize IJK player", e)
         }
         
         player = IjkMediaPlayer()
@@ -119,10 +120,11 @@ class IjkPlayerImpl : IPlayer {
             player?.release()
             IjkMediaPlayer.native_profileEnd()
         } catch (e: Exception) {
-            // 忽略释放时的异常
+            android.util.Log.e("IjkPlayerImpl", "Error releasing player: ${e.message}", e)
+        } finally {
+            player = null
+            isPrepared = false
         }
-        player = null
-        isPrepared = false
     }
 
     override fun seekTo(position: Long) {
@@ -173,11 +175,37 @@ class IjkPlayerImpl : IPlayer {
     }
 
     override fun getBufferedPercentage(): Int {
-        return 0
+        return try {
+            val meta = player?.getMediaMeta()
+            if (meta != null) {
+                val buffered = meta.getLong("buffered")
+                val duration = player?.duration ?: 0
+                if (duration > 0) {
+                    ((buffered.toFloat() / duration) * 100).toInt().coerceIn(0, 100)
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IjkPlayerImpl", "Error getting buffered percentage: ${e.message}")
+            0
+        }
     }
     
     override fun getBufferedPosition(): Long {
-        return 0
+        return try {
+            val meta = player?.getMediaMeta()
+            if (meta != null) {
+                meta.getLong("buffered")
+            } else {
+                0L
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("IjkPlayerImpl", "Error getting buffered position: ${e.message}")
+            0L
+        }
     }
     
     override fun getVideoWidth(): Int {

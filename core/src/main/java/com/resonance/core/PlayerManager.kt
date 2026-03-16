@@ -7,6 +7,11 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+/**
+ * 播放器异常类
+ */
+class PlayerException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 @UnstableApi
 class PlayerManager private constructor(private val context: Context) {
     enum class PlayerType {
@@ -43,6 +48,10 @@ class PlayerManager private constructor(private val context: Context) {
 
     fun getCurrentPlayer(): IPlayer? {
         return _currentPlayer
+    }
+    
+    fun getCurrentPlayerOrThrow(): IPlayer {
+        return _currentPlayer ?: throw PlayerException("Player not initialized. Call createPlayer() first.")
     }
 
     fun getCurrentType(): PlayerType? {

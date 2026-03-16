@@ -6,12 +6,12 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
+import com.resonance.core.performance.CpuUsageMonitor
+import com.resonance.core.performance.FpsMonitor
+import com.resonance.core.performance.FpsMonitor.FpsStatistics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.FileReader
-import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -23,6 +23,8 @@ class PerformanceOptimizer(private val context: Context) {
     private val memoryThreshold = 80 * 1024 * 1024 // 80MB
     private val cpuThreshold1080p = 12 // 12%
     private val cpuThreshold4K = 20 // 20%
+    private val cpuMonitor = CpuUsageMonitor()
+    private val fpsMonitor = FpsMonitor()
 
     fun startMonitoring() {
         // 启动内存监控
@@ -67,29 +69,44 @@ class PerformanceOptimizer(private val context: Context) {
     }
 
     private fun monitorCpu() {
-        val currentCpu = getCurrentCpuUsage()
-        Log.d("Performance", "Current CPU usage: $currentCpu%")
+        val cpuUsage = cpuMonitor.getCurrentCpuUsage()
+        Log.d("Performance", """
+            CPU Usage: ${cpuUsage.processCpu.toInt()}%
+            System CPU: ${cpuUsage.totalCpu.toInt()}%
+            Cores: ${cpuUsage.coreCount}
+            Frequency: ${cpuUsage.frequency / 1000}MHz
+            Temperature: ${cpuMonitor.getCpuTemperature()}°C
+        """.trimIndent())
         
-        // 根据播放分辨率调整CPU阈值
+        // 根据播放分辨率调整 CPU 阈值
         val is4K = isPlaying4K()
         val threshold = if (is4K) cpuThreshold4K else cpuThreshold1080p
         
-        if (currentCpu > threshold) {
-            // CPU超过阈值，进行优化
+        if (cpuUsage.processCpu > threshold) {
+            // CPU 超过阈值，进行优化
             CoroutineScope(Dispatchers.IO).launch {
-                optimizeCpu()
+                optimizeCpu(cpuUsage)
             }
         }
     }
 
     private fun monitorFps() {
-        val currentFps = getCurrentFps()
-        Log.d("Performance", "Current FPS: $currentFps")
+        val currentFps = fpsMonitor.getCurrentFps()
+        val stats = fpsMonitor.getFpsStatistics()
+        
+        Log.d("Performance", """
+            Current FPS: $currentFps
+            Average FPS: ${stats.avgFps.toInt()}
+            Min FPS: ${stats.minFps}
+            Max FPS: ${stats.maxFps}
+            Jank Count: ${stats.jankCount}
+            Jank Rate: ${stats.jankRate * 100}%
+        """.trimIndent())
         
         if (currentFps < 59 && isPlaying4K()) {
-            // 4K播放帧率不足，进行优化
+            // 4K 播放帧率不足，进行优化
             CoroutineScope(Dispatchers.IO).launch {
-                optimizeFps()
+                optimizeFps(currentFps, stats)
             }
         }
     }
@@ -97,24 +114,6 @@ class PerformanceOptimizer(private val context: Context) {
     private fun getCurrentMemoryUsage(): Long {
         val runtime = Runtime.getRuntime()
         return runtime.totalMemory() - runtime.freeMemory()
-    }
-
-    private fun getCurrentCpuUsage(): Int {
-        try {
-            val reader = BufferedReader(FileReader("/proc/stat"))
-            val line = reader.readLine()
-            reader.close()
-            
-            val parts = line.split(" ".toRegex()).filter { it.isNotEmpty() }
-            val idle = parts[4].toLong()
-            val total = parts.drop(1).sumOf { it.toLong() }
-            
-            // 计算CPU使用率
-            return ((total - idle) * 100 / total).toInt()
-        } catch (e: IOException) {
-            e.printStackTrace()
-            return 0
-        }
     }
 
     private fun getCurrentFps(): Int {
@@ -139,26 +138,48 @@ class PerformanceOptimizer(private val context: Context) {
         System.gc()
     }
 
-    private fun optimizeCpu() {
-        // 1. 降低播放分辨率
-        reduceResolution()
-        
-        // 2. 调整解码模式
-        adjustDecodingMode()
-        
-        // 3. 减少后台任务
-        reduceBackgroundTasks()
+    private fun optimizeCpu(cpuUsage: CpuUsageMonitor.CpuUsage) {
+        when {
+            cpuUsage.processCpu > 80 -> {
+                // 紧急优化：降低分辨率、减少后台任务
+                Log.w("Performance", "紧急 CPU 优化：${cpuUsage.processCpu.toInt()}%")
+                reduceResolution()
+                reduceBackgroundTasks()
+            }
+            cpuUsage.processCpu > 60 -> {
+                // 普通优化：调整解码模式
+                Log.w("Performance", "普通 CPU 优化：${cpuUsage.processCpu.toInt()}%")
+                adjustDecodingMode()
+            }
+            cpuUsage.frequency > 2000000 -> { // 2.0GHz
+                // 高频优化：降低 CPU 频率
+                Log.w("Performance", "高频 CPU 优化：${cpuUsage.frequency / 1000}MHz")
+                throttleCpu()
+            }
+        }
     }
 
-    private fun optimizeFps() {
-        // 1. 开启硬件加速
-        enableHardwareAcceleration()
-        
-        // 2. 调整缓冲策略
-        adjustBufferingStrategy()
-        
-        // 3. 优化渲染
-        optimizeRendering()
+    private fun optimizeFps(currentFps: Int, stats: FpsStatistics) {
+        when {
+            currentFps < 30 -> {
+                // 严重帧率下降：紧急优化
+                Log.w("Performance", "紧急 FPS 优化：${currentFps}fps")
+                enableHardwareAcceleration()
+                reduceResolution()
+                adjustBufferingStrategy()
+            }
+            currentFps < 45 -> {
+                // 中度帧率下降：普通优化
+                Log.w("Performance", "普通 FPS 优化：${currentFps}fps")
+                optimizeRendering()
+                reduceBackgroundTasks()
+            }
+            stats.jankRate > 0.1f -> {
+                // 卡顿率高：优化渲染
+                Log.w("Performance", "高卡顿率：${stats.jankRate * 100}%")
+                optimizeRendering()
+            }
+        }
     }
 
     private fun clearCache() {
@@ -183,6 +204,12 @@ class PerformanceOptimizer(private val context: Context) {
 
     private fun reduceBackgroundTasks() {
         // 暂停非必要的后台任务
+    }
+
+    private fun throttleCpu() {
+        // 降低 CPU 频率（需要系统权限）
+        // 这里只是一个占位符，实际需要 root 权限或系统签名
+        Log.d("Performance", "CPU 节流：尝试降低频率")
     }
 
     private fun enableHardwareAcceleration() {
@@ -251,6 +278,20 @@ class PerformanceOptimizer(private val context: Context) {
                     instance = it
                 }
             }
+        }
+        
+        /**
+         * 帧率严重下降时的处理
+         */
+        fun onLowFps(fps: Int) {
+            Log.e("Performance", "帧率严重下降：${fps}fps，触发紧急优化")
+        }
+        
+        /**
+         * 帧率中度下降时的处理
+         */
+        fun onMediumLowFps(fps: Int) {
+            Log.w("Performance", "帧率下降：${fps}fps，触发警告")
         }
     }
 }

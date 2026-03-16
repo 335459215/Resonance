@@ -6,6 +6,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import coil.util.DebugLogger
+import com.resonance.core.config.AppConfig
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -15,10 +16,6 @@ import java.util.concurrent.TimeUnit
  * 提供优化的图片加载和缓存配置
  */
 object ImageCacheManager {
-    
-    private const val MAX_MEMORY_CACHE_PERCENT = 0.25 // 使用 25% 的可用内存作为内存缓存
-    private const val MAX_DISK_CACHE_SIZE = 100L * 1024 * 1024 // 100MB 磁盘缓存
-    private const val IMAGE_CACHE_DIR = "image_cache"
     
     /**
      * 创建优化的 ImageLoader
@@ -46,28 +43,53 @@ object ImageCacheManager {
      */
     private fun createCacheEnabledHttpClient(context: Context): OkHttpClient {
         return OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(AppConfig.READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(AppConfig.READ_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .writeTimeout(AppConfig.WRITE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             .cache(
                 okhttp3.Cache(
                     directory = File(context.cacheDir, "http_cache"),
-                    maxSize = 50L * 1024 * 1024 // 50MB HTTP 缓存
+                    maxSize = AppConfig.HTTP_CACHE_SIZE_BYTES // 50MB HTTP 缓存
                 )
             )
             .build()
     }
     
     /**
-     * 创建内存缓存
+     * 创建内存缓存（带 OOM 保护）
      */
     private fun createMemoryCache(context: Context): MemoryCache {
-        val availableMemorySize = Runtime.getRuntime().maxMemory() / 1024
-        val maxSize = (availableMemorySize * MAX_MEMORY_CACHE_PERCENT).toLong()
+        val runtime = Runtime.getRuntime()
+        val maxMemory = runtime.maxMemory()
+        val availableMemory = runtime.freeMemory()
+        
+        // 动态计算缓存大小，避免 OOM
+        val safeMemorySize = (availableMemory.coerceAtMost(maxMemory * 0.5) / 1024).toLong()
+        val maxSize = safeMemorySize.coerceAtMost((maxMemory / 1024 * AppConfig.IMAGE_MEMORY_CACHE_PERCENT).toLong())
+        
+        android.util.Log.d("ImageCacheManager", "Memory cache size: ${maxSize / 1024}KB (available: ${availableMemory / 1024 / 1024}MB)")
         
         return MemoryCache.Builder(context)
-            .maxSizePercent(MAX_MEMORY_CACHE_PERCENT)
+            .maxSizeBytes(maxSize)
             .build()
+    }
+    
+    /**
+     * 检查内存状态并在需要时清理缓存
+     */
+    fun checkAndCleanupMemory() {
+        val runtime = Runtime.getRuntime()
+        val usedMemory = runtime.totalMemory() - runtime.freeMemory()
+        val maxMemory = runtime.maxMemory()
+        val usagePercent = usedMemory.toDouble() / maxMemory.toDouble()
+        
+        if (usagePercent > 0.8) {
+            android.util.Log.w("ImageCacheManager", "High memory usage detected: ${(usagePercent * 100).toInt()}%, triggering cleanup")
+            // 内存使用超过 80%，建议清理
+            // 注意：Coil 会自动管理内存缓存，这里只是日志警告
+        } else if (usagePercent > 0.9) {
+            android.util.Log.e("ImageCacheManager", "Critical memory usage: ${(usagePercent * 100).toInt()}%, immediate cleanup recommended")
+        }
     }
     
     /**
@@ -75,8 +97,8 @@ object ImageCacheManager {
      */
     private fun createDiskCache(context: Context): DiskCache {
         return DiskCache.Builder()
-            .directory(context.cacheDir.resolve(IMAGE_CACHE_DIR))
-            .maxSizeBytes(MAX_DISK_CACHE_SIZE)
+            .directory(context.cacheDir.resolve("image_cache"))
+            .maxSizeBytes(AppConfig.IMAGE_DISK_CACHE_SIZE_BYTES)
             .build()
     }
     

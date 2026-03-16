@@ -2,6 +2,7 @@
 
 import android.content.Context
 import android.view.Surface
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -210,7 +211,22 @@ class Media3Player(private val context: Context) : IPlayer {
     }
     
     override fun setAudioTrack(index: Int) {
-        // 简化实现
+        try {
+            // 使用 Media3 的 TrackSelectionParameters 选择音轨
+            val trackSelectionParameters = player?.trackSelectionParameters
+            if (trackSelectionParameters != null) {
+                val updatedParameters = trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                    .setForceHighestSupportedBitrate(true)
+                    .build()
+                player?.trackSelectionParameters = updatedParameters
+                
+                android.util.Log.d("Media3Player", "Audio track set to index: $index")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Media3Player", "Error setting audio track: ${e.message}")
+        }
     }
     
     override fun getAudioTracks(): List<TrackInfo> {

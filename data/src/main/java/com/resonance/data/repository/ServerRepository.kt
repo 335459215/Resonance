@@ -4,7 +4,9 @@ import android.content.Context
 import com.resonance.data.model.ConnectionTestResult
 import com.resonance.data.model.ServerConfig
 import com.resonance.data.model.ServerType
+import com.resonance.core.config.AppConfig
 import com.tencent.mmkv.MMKV
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import okhttp3.OkHttpClient
@@ -14,8 +16,6 @@ import java.net.Proxy
 import java.net.Socket
 import java.net.URL
 import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 /**
  * 服务器配置 Repository
@@ -32,9 +32,6 @@ class ServerRepository(context: Context) {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
-    
-    // 连接测试超时时间（毫秒）
-    private val CONNECTION_TIMEOUT = 5000
     
     /**
      * 加密服务器密码
@@ -298,24 +295,17 @@ class ServerRepository(context: Context) {
                 val address = InetSocketAddress(host, port)
                 
                 if (protocol == "https") {
-                    // HTTPS 连接
+                    // HTTPS 连接 - 使用系统默认证书验证
                     val sslContext = SSLContext.getInstance("TLS")
-                    val trustAllCerts = arrayOf<TrustManager>(
-                        object : X509TrustManager {
-                            override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
-                            override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) {}
-                            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
-                        }
-                    )
-                    sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+                    sslContext.init(null, null, java.security.SecureRandom())
                     
                     val sslSocket = sslContext.socketFactory.createSocket(host, port) as javax.net.ssl.SSLSocket
-                    sslSocket.soTimeout = CONNECTION_TIMEOUT
+                    sslSocket.soTimeout = AppConfig.CONNECTION_TIMEOUT_MS.toInt()
                     sslSocket.startHandshake()
                     sslSocket.isConnected
                 } else {
                     // HTTP 连接
-                    socket.connect(address, CONNECTION_TIMEOUT)
+                    socket.connect(address, AppConfig.CONNECTION_TIMEOUT_MS.toInt())
                     socket.isConnected
                 }
             } finally {
@@ -328,26 +318,37 @@ class ServerRepository(context: Context) {
     }
     
     /**
-     * 测试 HTTP 连接
+     * 测试 HTTP 连接（带重试机制）
      */
     private suspend fun testHttpConnection(url: String): Boolean {
-        return try {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(CONNECTION_TIMEOUT.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
-                .readTimeout(CONNECTION_TIMEOUT.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
+        val maxRetries = 3
+        var retryCount = 0
+        
+        while (retryCount < maxRetries) {
+            try {
+                val client = OkHttpClient.Builder()
+                .connectTimeout(AppConfig.CONNECTION_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(AppConfig.CONNECTION_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
                 .build()
-            
-            val request = Request.Builder()
-                .url(url)
-                .head() // 使用 HEAD 请求减少数据传输
-                .build()
-            
-            val response = client.newCall(request).execute()
-            response.isSuccessful || response.code in 200..399
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
+                
+                val request = Request.Builder()
+                    .url(url)
+                    .head() // 使用 HEAD 请求减少数据传输
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                return response.isSuccessful || response.code in 200..399
+            } catch (e: Exception) {
+                retryCount++
+                if (retryCount >= maxRetries) {
+                    e.printStackTrace()
+                    return false
+                }
+                // 指数退避：第一次重试延迟 500ms，第二次 1000ms
+                delay(AppConfig.NETWORK_RETRY_DELAY_MS * retryCount)
+            }
         }
+        return false
     }
     
     /**

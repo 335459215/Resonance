@@ -216,8 +216,18 @@ object AdvancedAlgorithms {
         val codes = mutableMapOf<Char, String>()
         priorityQueue.firstOrNull()?.generateCodes(codes, "")
         
-        // 编码数据
-        val encoded = data.map { codes[it] }.joinToString("")
+        // 编码数据 - 处理可能的 null 值
+        val encoded = buildString {
+            for (char in data) {
+                val code = codes[char]
+                if (code != null) {
+                    append(code)
+                } else {
+                    // 如果字符不在编码表中，跳过（理论上不应该发生）
+                    android.util.Log.w("HuffmanEncoder", "Character '$char' not found in encoding table")
+                }
+            }
+        }
         
         return encoded to codes
     }

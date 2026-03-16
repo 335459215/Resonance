@@ -1,46 +1,80 @@
 ﻿package com.resonance.ui.utils
 
+import android.security.KeyStoreParams
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
+import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.GCMParameterSpec
 
 /**
  * 安全加密工具类
- * 提供密码加密和解密功能
+ * 提供密码加密和解密功能（使用 AES/GCM/NoPadding 模式）
  */
 object SecurityUtils {
     
-    private const val ALGORITHM = "AES"
-    private const val TRANSFORMATION = "AES/ECB/PKCS5Padding"
-    private const val KEY_SIZE = 128
+    private const val ANDROID_KEY_STORE = "AndroidKeyStore"
+    private const val KEY_ALIAS = "resonance_master_key"
+    private const val TRANSFORMATION = "AES/GCM/NoPadding"
+    private const val GCM_IV_LENGTH = 12
+    private const val GCM_TAG_LENGTH = 128
     
-    private var secretKey: SecretKey? = null
+    private val keyStore: KeyStore by lazy {
+        KeyStore.getInstance(ANDROID_KEY_STORE).apply {
+            load(null)
+        }
+    }
     
     /**
-     * 生成或获取密钥
+     * 生成或获取密钥（使用 Android KeyStore）
      */
     private fun getSecretKey(): SecretKey {
-        if (secretKey == null) {
-            val keyGenerator = KeyGenerator.getInstance(ALGORITHM)
-            keyGenerator.init(KEY_SIZE)
-            secretKey = keyGenerator.generateKey()
+        val entry = keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
+        if (entry != null) {
+            return entry.secretKey
         }
-        return secretKey!!
+        
+        // 生成新密钥
+        val keyGenerator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_AES,
+            ANDROID_KEY_STORE
+        )
+        
+        val keyGenParameterSpec = KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(256)
+            .build()
+        
+        keyGenerator.init(keyGenParameterSpec)
+        return keyGenerator.generateKey()
     }
     
     /**
      * 加密密码
      * @param password 原始密码
-     * @return Base64 编码的加密字符串
+     * @return Base64 编码的加密字符串（IV + 密文）
      */
     fun encryptPassword(password: String): String {
         return try {
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
+            
+            val iv = cipher.iv
             val encryptedBytes = cipher.doFinal(password.toByteArray())
-            Base64.encodeToString(encryptedBytes, Base64.DEFAULT)
+            
+            // IV + 密文一起编码
+            val combined = ByteArray(iv.size + encryptedBytes.size)
+            System.arraycopy(iv, 0, combined, 0, iv.size)
+            System.arraycopy(encryptedBytes, 0, combined, iv.size, encryptedBytes.size)
+            
+            Base64.encodeToString(combined, Base64.DEFAULT)
         } catch (e: Exception) {
             e.printStackTrace()
             password // 如果加密失败，返回原始密码
@@ -49,14 +83,22 @@ object SecurityUtils {
     
     /**
      * 解密密码
-     * @param encryptedPassword Base64 编码的加密字符串
+     * @param encryptedPassword Base64 编码的加密字符串（IV + 密文）
      * @return 解密后的原始密码
      */
     fun decryptPassword(encryptedPassword: String): String {
         return try {
+            val combined = Base64.decode(encryptedPassword, Base64.DEFAULT)
+            
+            // 提取 IV 和密文
+            val iv = combined.copyOf(GCM_IV_LENGTH)
+            val encryptedBytes = combined.sliceArray(GCM_IV_LENGTH until combined.size)
+            
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, getSecretKey())
-            val decryptedBytes = cipher.doFinal(Base64.decode(encryptedPassword, Base64.DEFAULT))
+            val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
+            cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
+            
+            val decryptedBytes = cipher.doFinal(encryptedBytes)
             String(decryptedBytes)
         } catch (e: Exception) {
             e.printStackTrace()

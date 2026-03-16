@@ -1,4 +1,4 @@
-﻿package com.resonance.core
+package com.resonance.core
 
 import android.content.ComponentName
 import android.content.Context
@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharedFlow
 
 @UnstableApi
 class PlayerClient(private val context: Context) {
+    
     private var serviceMessenger: Messenger? = null
     private val clientMessenger = Messenger(object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
@@ -29,11 +30,19 @@ class PlayerClient(private val context: Context) {
     private var isBound = false
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            android.util.Log.i("PlayerClient", "Service connected: $name")
             serviceMessenger = Messenger(service)
             isBound = true
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
+            android.util.Log.w("PlayerClient", "Service disconnected: $name")
+            serviceMessenger = null
+            isBound = false
+        }
+        
+        override fun onBindingDied(name: ComponentName?) {
+            android.util.Log.e("PlayerClient", "Service binding died: $name")
             serviceMessenger = null
             isBound = false
         }
@@ -41,109 +50,120 @@ class PlayerClient(private val context: Context) {
 
     fun bindService() {
         if (!isBound) {
+            android.util.Log.d("PlayerClient", "Binding to PlayerService")
             val intent = Intent(context, PlayerService::class.java)
             context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } else {
+            android.util.Log.w("PlayerClient", "Already bound to service")
         }
     }
 
     fun unbindService() {
         if (isBound) {
+            android.util.Log.d("PlayerClient", "Unbinding from PlayerService")
             context.unbindService(connection)
             isBound = false
+        } else {
+            android.util.Log.w("PlayerClient", "Not bound to service")
         }
     }
 
     suspend fun initPlayer(playerType: PlayerManager.PlayerType = PlayerManager.PlayerType.MEDIA3): Boolean {
         return sendMessageWithResponse(
-            what = PlayerService.MSG_INIT,
+            what = PlayerConstants.MSG_INIT,
             bundle = Bundle().apply {
-                putInt(PlayerService.KEY_PLAYER_TYPE, playerType.ordinal)
+                putInt(PlayerConstants.KEY_PLAYER_TYPE, playerType.ordinal)
             }
         )
     }
 
     fun setSurface(surface: Surface?) {
         sendMessage(
-            what = PlayerService.MSG_SET_SURFACE,
+            what = PlayerConstants.MSG_SET_SURFACE,
             bundle = Bundle().apply {
-                putParcelable(PlayerService.KEY_SURFACE, surface)
+                putParcelable(PlayerConstants.KEY_SURFACE, surface)
             }
         )
     }
 
     fun setDataSource(url: String) {
         sendMessage(
-            what = PlayerService.MSG_SET_DATA_SOURCE,
+            what = PlayerConstants.MSG_SET_DATA_SOURCE,
             bundle = Bundle().apply {
-                putString(PlayerService.KEY_DATA_SOURCE, url)
+                putString(PlayerConstants.KEY_DATA_SOURCE, url)
             }
         )
     }
 
     suspend fun prepare(): Boolean {
-        return sendMessageWithResponse(PlayerService.MSG_PREPARE)
+        return sendMessageWithResponse(PlayerConstants.MSG_PREPARE)
     }
 
     fun start() {
-        sendMessage(PlayerService.MSG_START)
+        sendMessage(PlayerConstants.MSG_START)
     }
 
     fun pause() {
-        sendMessage(PlayerService.MSG_PAUSE)
+        sendMessage(PlayerConstants.MSG_PAUSE)
     }
 
     fun stop() {
-        sendMessage(PlayerService.MSG_STOP)
+        sendMessage(PlayerConstants.MSG_STOP)
     }
 
     fun seekTo(position: Long) {
         sendMessage(
-            what = PlayerService.MSG_SEEK_TO,
+            what = PlayerConstants.MSG_SEEK_TO,
             bundle = Bundle().apply {
-                putLong(PlayerService.KEY_POSITION, position)
+                putLong(PlayerConstants.KEY_POSITION, position)
             }
         )
     }
 
     fun setVolume(volume: Float) {
         sendMessage(
-            what = PlayerService.MSG_SET_VOLUME,
+            what = PlayerConstants.MSG_SET_VOLUME,
             bundle = Bundle().apply {
-                putFloat(PlayerService.KEY_VOLUME, volume)
+                putFloat(PlayerConstants.KEY_VOLUME, volume)
             }
         )
     }
 
     fun setSpeed(speed: Float) {
         sendMessage(
-            what = PlayerService.MSG_SET_SPEED,
+            what = PlayerConstants.MSG_SET_SPEED,
             bundle = Bundle().apply {
-                putFloat(PlayerService.KEY_SPEED, speed)
+                putFloat(PlayerConstants.KEY_SPEED, speed)
             }
         )
     }
 
     fun release() {
-        sendMessage(PlayerService.MSG_RELEASE)
+        sendMessage(PlayerConstants.MSG_RELEASE)
     }
 
     suspend fun getStatus(): PlayerService.PlayerStatus? {
-        val response = CompletableDeferred<PlayerService.PlayerStatus?>()
-        val message = Message.obtain(null, PlayerService.MSG_GET_STATUS)
-        message.replyTo = Messenger(object : Handler(Looper.getMainLooper()) {
-            override fun handleMessage(msg: Message) {
-                val bundle = msg.data
-                val status = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    bundle.getParcelable(PlayerService.KEY_STATUS, PlayerService.PlayerStatus::class.java)
-                } else {
-                    @Suppress("DEPRECATION")
-                    bundle.getParcelable(PlayerService.KEY_STATUS)
+        try {
+            val response = CompletableDeferred<PlayerService.PlayerStatus?>()
+            val message = Message.obtain(null, PlayerConstants.MSG_GET_STATUS)
+            message.replyTo = Messenger(object : Handler(Looper.getMainLooper()) {
+                override fun handleMessage(msg: Message) {
+                    val bundle = msg.data
+                    val status = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        bundle.getParcelable(PlayerConstants.KEY_STATUS, PlayerService.PlayerStatus::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        bundle.getParcelable(PlayerConstants.KEY_STATUS)
+                    }
+                    response.complete(status)
                 }
-                response.complete(status)
-            }
-        })
-        serviceMessenger?.send(message)
-        return response.await()
+            })
+            serviceMessenger?.send(message)
+            return response.await()
+        } catch (e: Exception) {
+            android.util.Log.e("PlayerClient", "Failed to get status: ${e.message}")
+            return null
+        }
     }
 
     private fun sendMessage(what: Int, bundle: Bundle? = null) {
@@ -168,8 +188,8 @@ class PlayerClient(private val context: Context) {
         message.replyTo = Messenger(object : Handler(Looper.getMainLooper()) {
             override fun handleMessage(msg: Message) {
                 val bundle = msg.data
-                val success = bundle.getBoolean(PlayerService.KEY_SUCCESS, false)
-                val errorMessage = bundle.getString(PlayerService.KEY_MESSAGE, "")
+                val success = bundle.getBoolean(PlayerConstants.KEY_SUCCESS, false)
+                val errorMessage = bundle.getString(PlayerConstants.KEY_MESSAGE, "")
                 if (!success && errorMessage.isNotEmpty()) {
                     CoroutineScope(Dispatchers.Main).launch {
                         _errorFlow.emit(errorMessage)
@@ -184,13 +204,13 @@ class PlayerClient(private val context: Context) {
 
     private fun handleServiceMessage(msg: Message) {
         when (msg.what) {
-            PlayerService.MSG_GET_STATUS -> {
+            PlayerConstants.MSG_GET_STATUS -> {
                 val bundle = msg.data
                 val status = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    bundle.getParcelable(PlayerService.KEY_STATUS, PlayerService.PlayerStatus::class.java)
+                    bundle.getParcelable(PlayerConstants.KEY_STATUS, PlayerService.PlayerStatus::class.java)
                 } else {
                     @Suppress("DEPRECATION")
-                    bundle.getParcelable(PlayerService.KEY_STATUS)
+                    bundle.getParcelable(PlayerConstants.KEY_STATUS)
                 }
                 status?.let {
                     CoroutineScope(Dispatchers.Main).launch {

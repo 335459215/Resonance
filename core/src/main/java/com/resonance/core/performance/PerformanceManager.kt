@@ -3,8 +3,11 @@
 import android.app.ActivityManager
 import android.content.Context
 import android.os.SystemClock
+import com.resonance.core.config.AppConfig
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * 高级性能管理器
@@ -27,7 +30,7 @@ class PerformanceManager private constructor(
         }
     }
     
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var scope: CoroutineScope? = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val memoryCache = ConcurrentHashMap<String, Any>()
     private val performanceMetrics = ConcurrentHashMap<String, Long>()
     private var isMonitoring = false
@@ -42,7 +45,7 @@ class PerformanceManager private constructor(
         if (isMonitoring) return
         isMonitoring = true
         
-        scope.launch {
+        scope?.launch {
             while (isMonitoring) {
                 monitorMemory()
                 monitorCPU()
@@ -108,7 +111,9 @@ class PerformanceManager private constructor(
         val startTime = performanceMetrics[tag] ?: return 0L
         val endTime = SystemClock.elapsedRealtime()
         val duration = endTime - startTime
-        performanceMetrics.remove(tag)
+        synchronized(performanceMetrics) {
+            performanceMetrics.remove(tag)
+        }
         return duration
     }
     
@@ -183,7 +188,8 @@ class PerformanceManager private constructor(
      */
     fun destroy() {
         isMonitoring = false
-        scope.cancel()
+        scope?.cancel()
+        scope = null
         memoryCache.clear()
         performanceMetrics.clear()
         instance = null
@@ -245,7 +251,7 @@ object ImageLoaderOptimizer {
         
         // 如果缓存超限，清理最旧的数据
         while (currentCacheSize + dataSize > maxCacheSize && imageCache.isNotEmpty()) {
-            val oldestKey = imageCache.keys.first()
+            val oldestKey = imageCache.entries.iterator().next().key
             val removedData = imageCache.remove(oldestKey)
             if (removedData != null) {
                 currentCacheSize -= removedData.size.toLong()
@@ -265,12 +271,29 @@ object ImageLoaderOptimizer {
     }
     
     /**
-     * 模拟从网络加载图片
+     * 从网络加载图片
      */
     private suspend fun loadImageFromNetwork(url: String): ByteArray {
-        // 模拟网络延迟
-        delay(100)
-        return ByteArray(0) // 返回空数据作为示例
+        return try {
+            val client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(10000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .build()
+            
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .build()
+            
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful && response.body != null) {
+                response.body!!.bytes()
+            } else {
+                ByteArray(0)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ImageLoader", "Failed to load image from $url: ${e.message}")
+            ByteArray(0)
+        }
     }
 }
 
@@ -279,8 +302,13 @@ object ImageLoaderOptimizer {
  */
 object NetworkOptimizer {
     
-    private val requestCache = ConcurrentHashMap<String, Pair<Long, Any>>()
-    private val cacheExpireTime = 5 * 60 * 1000L // 5 分钟
+    private val maxCacheSize = AppConfig.MAX_REQUEST_CACHE_SIZE // 最多缓存 100 个请求
+    private val requestCache = object : LinkedHashMap<String, Pair<Long, Any>>(maxCacheSize, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, Any>>?): Boolean {
+            return size > maxCacheSize
+        }
+    }
+    private val cacheExpireTime = AppConfig.REQUEST_CACHE_EXPIRE_TIME_MS // 5 分钟
     
     /**
      * 带缓存的网络请求
