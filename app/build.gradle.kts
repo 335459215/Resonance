@@ -12,8 +12,8 @@ android {
         applicationId = "com.resonance"
         minSdk = 23
         targetSdk = 35
-        versionCode = 2026031606
-        versionName = "0.0.1"
+        versionCode = 2026031611
+        versionName = "0.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
