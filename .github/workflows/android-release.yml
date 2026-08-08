@@ -44,24 +44,26 @@ jobs:
     - name: Create gradle.properties
       run: |
         echo "RELEASE_STORE_FILE=release.keystore" >> gradle.properties
-        echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}" >> gradle.properties
-        echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}" >> gradle.properties
-        echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> gradle.properties
         cat gradle.properties
-    
+
     - name: Decode Keystore
       uses: timheuer/base64-to-file@v1.2
       id: keystore
       with:
         fileName: 'release.keystore'
         encodedString: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-    
+
     - name: Move Keystore to root
       run: |
         mv ${{ steps.keystore.outputs.filePath }} release.keystore
         ls -la release.keystore
-    
+
     - name: Build Release APK
+      env:
+        RELEASE_STORE_FILE: release.keystore
+        RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+        RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
       run: |
         echo "🔨 Starting build..."
         ./gradlew clean assembleRelease --no-daemon

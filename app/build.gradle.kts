@@ -18,13 +18,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // 配置签名
+    // 配置签名 (密码只从环境变量读取, 不硬编码; CI 由 GitHub Secrets 注入)
     signingConfigs {
         create("release") {
             storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: rootProject.file("release.keystore").absolutePath)
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "***REDACTED***"
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "resonance"
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "***REDACTED***"
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                ?: throw GradleException("RELEASE_STORE_PASSWORD 未设置: 请在环境变量或 gradle.properties 中提供签名密码")
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                ?: throw GradleException("RELEASE_KEY_ALIAS 未设置: 请提供签名别名")
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+                ?: throw GradleException("RELEASE_KEY_PASSWORD 未设置: 请在环境变量或 gradle.properties 中提供签名密码")
         }
     }
 

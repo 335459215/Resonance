@@ -108,3 +108,6 @@ secrets/
 *.jks
 *.keystore
 keystore.properties
+
+# Local signing credentials (DO NOT COMMIT)
+.release-credentials
